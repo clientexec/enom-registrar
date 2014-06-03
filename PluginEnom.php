@@ -21,44 +21,44 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function getVariables()
     {
         $variables = array(
-            /*T*/'Plugin Name'/*/T*/ => array (
+            lang('Plugin Name') => array (
                                 'type'          =>'hidden',
-                                'description'   =>/*T*/'How CE sees this plugin (not to be confused with the Signup Name)'/*/T*/,
-                                'value'         =>/*T*/'eNom'/*/T*/
+                                'description'   =>lang('How CE sees this plugin (not to be confused with the Signup Name)'),
+                                'value'         =>lang('eNom')
                                ),
-            /*T*/'Use testing server'/*/T*/ => array(
+            lang('Use testing server') => array(
                                 'type'          =>'yesno',
-                                'description'   =>/*T*/'Select Yes if you wish to use Enom\'s testing environment, so that transactions are not actually made. For this to work, you must first register you server\'s ip in Enom\'s testing environment, and your server\'s name servers must be registered there as well.'/*/T*/,
+                                'description'   =>lang('Select Yes if you wish to use Enom\'s testing environment, so that transactions are not actually made. For this to work, you must first register you server\'s ip in Enom\'s testing environment, and your server\'s name servers must be registered there as well.'),
                                 'value'         =>0
                                ),
-            /*T*/'Login'/*/T*/ => array(
+            lang('Login') => array(
                                 'type'          =>'text',
-                                'description'   =>/*T*/'Enter your username for your Enom reseller account.'/*/T*/,
+                                'description'   =>lang('Enter your username for your Enom reseller account.'),
                                 'value'         =>''
                                ),
-            /*T*/'Password'/*/T*/  => array(
+            lang('Password')  => array(
                                 'type'          =>'password',
-                                'description'   =>/*T*/'Enter the password for your Enom reseller account.'/*/T*/,
+                                'description'   =>lang('Enter the password for your Enom reseller account.'),
                                 'value'         =>'',
                                 ),
-            /*T*/'Supported Features'/*/T*/  => array(
+            lang('Supported Features')  => array(
                                 'type'          => 'label',
-                                'description'   => '* './*T*/'TLD Lookup'/*/T*/.'<br>* './*T*/'Domain Registration'/*/T*/.' <br>* './*T*/'Domain Registration with ID Protect'/*/T*/.' <br>* './*T*/'Existing Domain Importing'/*/T*/.' <br>* './*T*/'Get / Set Auto Renew Status'/*/T*/.' <br>* './*T*/'Get / Set DNS Records'/*/T*/.' <br>* './*T*/'Get / Set Nameserver Records'/*/T*/.' <br>* './*T*/'Get / Set Contact Information'/*/T*/.' <br>* './*T*/'Get / Set Registrar Lock'/*/T*/.' <br>* './*T*/'Initiate Domain Transfer'/*/T*/.' <br>* './*T*/'Automatically Renew Domain'/*/T*/.' <br>* './*T*/'Send Transfer Key'/*/T*/,
+                                'description'   => '* '.lang('TLD Lookup').'<br>* '.lang('Domain Registration').' <br>* '.lang('Domain Registration with ID Protect').' <br>* '.lang('Existing Domain Importing').' <br>* '.lang('Get / Set Auto Renew Status').' <br>* '.lang('Get / Set DNS Records').' <br>* '.lang('Get / Set Nameserver Records').' <br>* '.lang('Get / Set Contact Information').' <br>* '.lang('Get / Set Registrar Lock').' <br>* '.lang('Initiate Domain Transfer').' <br>* '.lang('Automatically Renew Domain').' <br>* '.lang('Send Transfer Key'),
                                 'value'         => ''
                                 ),
-            /*T*/'Actions'/*/T*/ => array (
+            lang('Actions') => array (
                                 'type'          => 'hidden',
-                                'description'   => /*T*/'Current actions that are active for this plugin (when a domain isn\'t registered)'/*/T*/,
+                                'description'   => lang('Current actions that are active for this plugin (when a domain isn\'t registered)'),
                                 'value'         => 'Register'
                                 ),
-            /*T*/'Registered Actions'/*/T*/ => array (
+            lang('Registered Actions') => array (
                                 'type'          => 'hidden',
-                                'description'   => /*T*/'Current actions that are active for this plugin (when a domain is registered)'/*/T*/,
+                                'description'   => lang('Current actions that are active for this plugin (when a domain is registered)'),
                                 'value'         => 'Renew (Renew Domain),DomainTransferWithPopup (Initiate Transfer),SendTransferKey (Send Auth Info),Cancel',
                                 ),
-            /*T*/'Registered Actions For Customer'/*/T*/ => array (
+            lang('Registered Actions For Customer') => array (
                                 'type'          => 'hidden',
-                                'description'   => /*T*/'Current actions that are active for this plugin (when a domain is registered)'/*/T*/,
+                                'description'   => lang('Current actions that are active for this plugin (when a domain is registered)'),
                                 'value'         => 'SendTransferKey (Send Auth Info)',
             )
         );
