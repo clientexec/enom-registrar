@@ -564,11 +564,16 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                         for ($i = 1; $i <= $err; $i++) {
                             if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ) {
                                 $messages .= "Invalid IP Address.  Be sure to submit your servers IP to eNom in a support ticket.\n";
+                                throw new CE_Exception("eNom Plugin Error: &nbsp;&nbsp;".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
+                            } else if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 13) == 'Bad User name' ) {
+                                $messages .= "Invalid Username or Password.\n";
+                                throw new CE_Exception("eNom Plugin Error: &nbsp;&nbsp;".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } else {
                                 $messages .= $response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#']."\n";
+                                throw new CE_Exception("eNom Plugin Error: &nbsp;&nbsp;".$messages);
                             }
                         }
-                        throw new CE_Exception("eNom Plugin Error: &nbsp;&nbsp;".$messages);
+
                         break;
                 }
 
