@@ -90,8 +90,6 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     // 5:       Could not contact registry to lookup domain
     function checkDomain($params)
     {
-
-
         $arguments = array(
             'command'       => 'check',
             'uid'           => $params['Login'],
@@ -149,20 +147,6 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         }
 
         return array("result"=>$domains);
-
-        /*
-
-        if (isset($response['interface-response']['#']['RRPCode'][0]['#'])) {
-            $RRPCode = $response['interface-response']['#']['RRPCode'][0]['#'];
-        } else {
-            $RRPCode = '';
-        }
-
-        if ($RRPCode == 210) return array(0);
-        if ($RRPCode == 211) return array(1);
-        if ($RRPCode == 723) return array(2);
-        else return array(1);
-        */
     }
 
     /**
