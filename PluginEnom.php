@@ -146,6 +146,32 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
         }
 
+        if ( $params['enableNamespinner'] == true ) {
+
+            $arguments = array(
+                'command'       => 'GetNameSuggestions',
+                'uid'           => $params['Login'],
+                'pw'            => $params['Password'],
+                'OnlyTldList'   => implode(',', $params['allAvailableTLDs']),
+                'SearchTerm'    => $params['sld'],
+            );
+
+            $response = $this->_makeRequest($params, $arguments, true);
+            $err = $response['interface-response']['#']['ErrCount'][0]['#'];
+            if ($err > 0) {
+                // if there's an error from name spinner, just return domains we already have.
+                return array('result'=>$domains);
+            }
+            foreach ( $response['interface-response']['#']['DomainSuggestions'][0]['#']['Domain'] as $domain ) {
+                if ( $domain['@']['in_ga'] == 'true' && $domain['@']['premium'] == 'False' ) {
+                    $domains[] = array(
+                        'tld' => $domain['@']['tld'],
+                        'domain' => $domain['@']['sld'],
+                        'status' => 0 );
+                }
+            }
+        }
+
         return array("result"=>$domains);
     }
 
