@@ -573,7 +573,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                         $messages = "";
                         for ($i = 1; $i <= $err; $i++) {
                             if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
-                                 substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) 'User not permitted from this IP address')  {
+                                 substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address')  {
                                 $messages .= "Invalid IP Address.  Be sure to submit your servers IP to eNom in a support ticket.";
                                 throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } else if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 13) == 'Bad User name' ) {
