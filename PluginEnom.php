@@ -90,6 +90,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     // 5:       Could not contact registry to lookup domain
     function checkDomain($params)
     {
+        // array of full domains that we're returning, used for easy searching.
+        $fullDomains = array();
+
+        // the domains array in the format that CE expects to be returned.
+        $domains = array();
+
         $arguments = array(
             'command'       => 'check',
             'uid'           => $params['Login'],
@@ -97,56 +103,56 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             'tld'           => $params['tld'],
             'sld'           => $params['sld'],
         );
-        $domains = array();
+        ;
 
-        if ( $params['enableNamespinner'] == false ) {
-            if (isset($params['namesuggest'])) {
-                $arguments['TLDList'] = implode(",",$params['namesuggest']);
+        if (isset($params['namesuggest'])) {
+            $arguments['TLDList'] = implode(",",$params['namesuggest']);
+        }
+
+        $response = $this->_makeRequest($params, $arguments, true);
+
+        if (!$response) return array(5);
+
+        $err = $response['interface-response']['#']['ErrCount'][0]['#'];
+        if ($err > 0) return array(5, $response['interface-response']['#']['errors'][0]['#']['Err1'][0]['#']);
+
+        //oddly enom decides to return signle domain matches in a different node so let's copy to domain
+        if (isset($response['interface-response']['#']['DomainName'])) {
+            $response['interface-response']['#']['Domain'] = $response['interface-response']['#']['DomainName'];
+        }
+
+        foreach($response['interface-response']['#']['Domain'] as $key => $domain) {
+
+            //available?
+            if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#']) )
+            {
+                $RRPCode = $response['interface-response']['#']['RRPCode'][$key]['#'];
+            } else {
+                $RRPCode = "";
             }
 
-            $response = $this->_makeRequest($params, $arguments, true);
+            switch ($RRPCode)
+            {
+                case "210":
+                    $status = 0;
+                    break;
+                case "211":
+                    $status = 1;
+                    break;
+                case "723":
+                    $status = 2;
+                    break;
+                default:
+                    $status = 2;
+                    break;
 
-            if (!$response) return array(5);
-
-            $err = $response['interface-response']['#']['ErrCount'][0]['#'];
-            if ($err > 0) return array(5, $response['interface-response']['#']['errors'][0]['#']['Err1'][0]['#']);
-
-            //oddly enom decides to return signle domain matches in a different node so let's copy to domain
-            if (isset($response['interface-response']['#']['DomainName'])) {
-                $response['interface-response']['#']['Domain'] = $response['interface-response']['#']['DomainName'];
             }
-
-            foreach($response['interface-response']['#']['Domain'] as $key => $domain) {
-
-                //available?
-                if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#']) )
-                {
-                    $RRPCode = $response['interface-response']['#']['RRPCode'][$key]['#'];
-                } else {
-                    $RRPCode = "";
-                }
-
-                switch ($RRPCode)
-                {
-                    case "210":
-                        $status = 0;
-                        break;
-                    case "211":
-                        $status = 1;
-                        break;
-                    case "723":
-                        $status = 2;
-                        break;
-                    default:
-                        $status = 2;
-                        break;
-
-                }
-
-                $aDomain = DomainNameGateway::splitDomain($domain['#']);
-                $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
-            }
-        } else if ( $params['enableNamespinner'] == true ) {
+            $fullDomains[] = $domain['#'];
+            $aDomain = DomainNameGateway::splitDomain($domain['#']);
+            $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
+        }
+        if ( $params['enableNamespinner'] == true ) {
+            // we need to see if the domain exists in $domains already and not add it, if it does.
 
             $arguments = array(
                 'command'       => 'GetNameSuggestions',
@@ -163,6 +169,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 return array('result'=>$domains);
             }
             foreach ( $response['interface-response']['#']['DomainSuggestions'][0]['#']['Domain'] as $domain ) {
+                $tmpFullDomain = $domain['@']['sld'] . '.' . $domain['@']['tld'];
+                // the domain is already been checked, so ignore it here.
+                if ( in_array($tmpFullDomain, $fullDomains) ) {
+                    continue;
+                }
+
                 if ( $domain['@']['in_ga'] == 'true' && $domain['@']['premium'] == 'False' ) {
                     $domains[] = array(
                         'tld' => $domain['@']['tld'],
