@@ -97,56 +97,56 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             'tld'           => $params['tld'],
             'sld'           => $params['sld'],
         );
-
-        if (isset($params['namesuggest'])) {
-            $arguments['TLDList'] = implode(",",$params['namesuggest']);
-        }
-
-        $response = $this->_makeRequest($params, $arguments, true);
-
-        if (!$response) return array(5);
-
-        $err = $response['interface-response']['#']['ErrCount'][0]['#'];
-        if ($err > 0) return array(5, $response['interface-response']['#']['errors'][0]['#']['Err1'][0]['#']);
-
-        //oddly enom decides to return signle domain matches in a different node so let's copy to domain
-        if (isset($response['interface-response']['#']['DomainName'])) {
-            $response['interface-response']['#']['Domain'] = $response['interface-response']['#']['DomainName'];
-        }
-
         $domains = array();
-        foreach($response['interface-response']['#']['Domain'] as $key => $domain) {
 
-            //available?
-            if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#']) )
-            {
-                $RRPCode = $response['interface-response']['#']['RRPCode'][$key]['#'];
-            } else {
-                $RRPCode = "";
+        if ( $params['enableNamespinner'] == false ) {
+            if (isset($params['namesuggest'])) {
+                $arguments['TLDList'] = implode(",",$params['namesuggest']);
             }
 
-            switch ($RRPCode)
-            {
-                case "210":
-                    $status = 0;
-                    break;
-                case "211":
-                    $status = 1;
-                    break;
-                case "723":
-                    $status = 2;
-                    break;
-                default:
-                    $status = 2;
-                    break;
+            $response = $this->_makeRequest($params, $arguments, true);
 
+            if (!$response) return array(5);
+
+            $err = $response['interface-response']['#']['ErrCount'][0]['#'];
+            if ($err > 0) return array(5, $response['interface-response']['#']['errors'][0]['#']['Err1'][0]['#']);
+
+            //oddly enom decides to return signle domain matches in a different node so let's copy to domain
+            if (isset($response['interface-response']['#']['DomainName'])) {
+                $response['interface-response']['#']['Domain'] = $response['interface-response']['#']['DomainName'];
             }
 
-            $aDomain = DomainNameGateway::splitDomain($domain['#']);
-            $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
-        }
+            foreach($response['interface-response']['#']['Domain'] as $key => $domain) {
 
-        if ( $params['enableNamespinner'] == true ) {
+                //available?
+                if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#']) )
+                {
+                    $RRPCode = $response['interface-response']['#']['RRPCode'][$key]['#'];
+                } else {
+                    $RRPCode = "";
+                }
+
+                switch ($RRPCode)
+                {
+                    case "210":
+                        $status = 0;
+                        break;
+                    case "211":
+                        $status = 1;
+                        break;
+                    case "723":
+                        $status = 2;
+                        break;
+                    default:
+                        $status = 2;
+                        break;
+
+                }
+
+                $aDomain = DomainNameGateway::splitDomain($domain['#']);
+                $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
+            }
+        } else if ( $params['enableNamespinner'] == true ) {
 
             $arguments = array(
                 'command'       => 'GetNameSuggestions',
