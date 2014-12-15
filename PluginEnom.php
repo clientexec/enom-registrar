@@ -534,6 +534,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         if (!isset($params['secure'])) $params['secure'] = true;
         if (!isset($params['test'])) $params['test'] = false;
 
+
+        if (@$this->settings->get('plugin_enom_Use testing server') ) {
+            $params['secure'] = false;
+        }
+
         if ($params['secure']) $request = 'https://';
         else $request= 'http://';
 
