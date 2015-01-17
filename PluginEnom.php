@@ -597,14 +597,14 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                                 $messages .= "Invalid Username or Password.";
                                 throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } else {
-                                $messages .= $response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#']."\n";
-                                throw new CE_Exception("eNom Plugin Error: ".$messages);
+                                $messages .= $response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'] . ' ' ;
+
                             }
                         }
 
                         break;
                 }
-
+                throw new CE_Exception("eNom Plugin Error: ". $messages);
             }
         }
 
