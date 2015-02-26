@@ -515,7 +515,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             }
 
             $extraAttributes = serialize($extraAttributes);
-            $extraAttributes = mysql_real_escape_string(($extraAttributes));
+            $extraAttributes = base64_encode($extraAttributes);
 
             $query = "REPLACE INTO `tld_extra_attributes` SET tld='$tld', extra_attributes='$extraAttributes'";
             $this->db->query($query) or die("Error in query $query");
