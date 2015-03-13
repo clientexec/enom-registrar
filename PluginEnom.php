@@ -863,16 +863,20 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         $data['expiration'] = $response['status'][0]['#']['expiration'][0]['#'];
         $data['registrationstatus'] = $response['status'][0]['#']['registrationstatus'][0]['#'];
         $data['purchasestatus'] = $response['status'][0]['#']['purchase-status'][0]['#'];
+        $data['is_registered'] = ( $response['status'][0]['#']['registrationstatus'][0]['#'] == 'Registered') ? true : false;
+        $data['is_expired'] = ( $response['status'][0]['#']['registrationstatus'][0]['#'] == 'Expired') ? true : false;
 
-        $arguments['command'] = 'GetRenew';
-        $response = $this->_makeRequest($params, $arguments);
-        if (!is_array($response)) {
+        try {
+            $arguments['command'] = 'GetRenew';
+            $response = $this->_makeRequest($params, $arguments);
+            if (!is_array($response)) {
+                $data['autorenew'] = 0;
+            } else {
+                $response = $response['interface-response']['#'];
+                $data['autorenew'] = $response['auto-renew'][0]['#'];
+            }
+        } catch ( Exception $e ) {
             $data['autorenew'] = 0;
-        } else {
-
-            $response = $response['interface-response']['#'];
-            $data['autorenew'] = $response['auto-renew'][0]['#'];
-
         }
         return $data;
     }
