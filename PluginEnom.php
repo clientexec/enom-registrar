@@ -661,7 +661,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 $info[$type]['Address2']  = array($this->user->lang('Address').' 2', $data[$type.'Address2'][0]['#']);
                 $info[$type]['City']      = array($this->user->lang('City'), $data[$type.'City'][0]['#']);
                 $info[$type]['StateProvChoice']  = array($this->user->lang('State or Province'), $data[$type.'StateProvinceChoice'][0]['#']);
-                $info[$type]['StateProv']  = array($this->user->lang('Province').'/'.$this->user->lang('State'), $data[$type.'StateProvince'][0]['#']);
+                $info[$type]['StateProvince']  = array($this->user->lang('Province').'/'.$this->user->lang('State'), $data[$type.'StateProvince'][0]['#']);
                 $info[$type]['Country']   = array($this->user->lang('Country'), $data[$type.'Country'][0]['#']);
                 $info[$type]['PostalCode']  = array($this->user->lang('Postal Code'), $data[$type.'PostalCode'][0]['#']);
                 $info[$type]['EmailAddress']     = array($this->user->lang('E-mail'), $data[$type.'EmailAddress'][0]['#']);
@@ -678,7 +678,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                     'Address2'          => array($this->user->lang('Address').' 2', ''),
                     'City'              => array($this->user->lang('City'), ''),
                     'StateProvChoice'   => array($this->user->lang('State or Province'), ''),
-                    'StateProv'         => array($this->user->lang('Province').'/'.$this->user->lang('State'), ''),
+                    'StateProvince'         => array($this->user->lang('Province').'/'.$this->user->lang('State'), ''),
                     'Country'           => array($this->user->lang('Country'), ''),
                     'PostalCode'        => array($this->user->lang('Postal Code'), ''),
                     'EmailAddress'      => array($this->user->lang('E-mail'), ''),
