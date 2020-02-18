@@ -65,12 +65,48 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         return $variables;
     }
 
+    public function getTLDsAndPrices($params)
+    {
+        $arguments = array(
+            'command' => 'PE_GETCUSTOMERPRICING',
+            'uid' => $params['Login'],
+            'pw' => $params['Password'],
+            'ProductType' => 10
+        );
+        $response = $this->_makeRequest($params, $arguments);
+
+        $data = $response['interface-response']['#']['productstructure'][0]['#']['product'];
+        $tlds = [];
+        foreach ($data as $value) {
+            $productType = $value['#']['producttype'][0]['#'];
+            $tld = $value['#']['tld'][0]['#'];
+            $price = $value['#']['resellerprice'][0]['#'];
+            $enabled = $value['#']['enabled'][0]['#'];
+
+            // do not support IDN domains currently
+            if (substr($tld, 0, 4) == 'xn--') {
+                continue;
+            }
+
+            if ($enabled) {
+                if ($productType == 10) {
+                    $tlds[$tld]['pricing']['register'] = $price;
+                } elseif ($productType == 19) {
+                    $tlds[$tld]['pricing']['transfer'] = $price;
+                } elseif ($productType == 16) {
+                    $tlds[$tld]['pricing']['renew'] = $price;
+                }
+            }
+        }
+        return $tlds;
+    }
+
     function _getSupportedTLDs($params)
     {
         $arguments = array(
-            'command'       => 'gettldlist',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
+        'command'       => 'gettldlist',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
         );
         $response = $this->_makeRequest($params, $arguments);
         $tlds = array();
@@ -96,22 +132,22 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         $domains = array();
 
         $arguments = array(
-            'command'       => 'check',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'tld'           => $params['tld'],
-            'sld'           => $params['sld'],
+        'command'       => 'check',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'tld'           => $params['tld'],
+        'sld'           => $params['sld'],
         );
         ;
 
         if (isset($params['namesuggest'])) {
             foreach ($params['namesuggest'] as $key => $value) {
-                if ( $value == $params['tld']) {
+                if ($value == $params['tld']) {
                     unset($params['namesuggest'][$key]);
                     break;
                 }
             }
-            array_unshift ($params['namesuggest'], $params['tld']);
+            array_unshift($params['namesuggest'], $params['tld']);
             $arguments['TLDList'] = implode(",", $params['namesuggest']);
         }
 
@@ -132,16 +168,14 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         }
 
         foreach ($response['interface-response']['#']['Domain'] as $key => $domain) {
-
             //available?
-            if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#']) ) {
+            if (isset($response['interface-response']['#']['RRPCode'][$key]) && isset($response['interface-response']['#']['RRPCode'][$key]['#'])) {
                 $RRPCode = $response['interface-response']['#']['RRPCode'][$key]['#'];
             } else {
                 $RRPCode = "";
             }
 
-            switch ($RRPCode)
-            {
+            switch ($RRPCode) {
                 case "210":
                     $status = 0;
                     break;
@@ -154,22 +188,21 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 default:
                     $status = 2;
                     break;
-
             }
             $fullDomains[] = strtolower($domain['#']);
             $aDomain = DomainNameGateway::splitDomain($domain['#']);
             $domains[] = array("tld"=>$aDomain[1],"domain"=>$aDomain[0],"status"=>$status);
         }
 
-        if ( $params['enableNamespinner'] == true ) {
+        if ($params['enableNamespinner'] == true) {
             // we need to see if the domain exists in $domains already and not add it, if it does.
 
             $arguments = array(
-                'command'       => 'GetNameSuggestions',
-                'uid'           => $params['Login'],
-                'pw'            => $params['Password'],
-                'OnlyTldList'   => implode(',', $params['allAvailableTLDs']),
-                'SearchTerm'    => $params['sld'],
+            'command'       => 'GetNameSuggestions',
+            'uid'           => $params['Login'],
+            'pw'            => $params['Password'],
+            'OnlyTldList'   => implode(',', $params['allAvailableTLDs']),
+            'SearchTerm'    => $params['sld'],
             );
 
             $response = $this->_makeRequest($params, $arguments, true);
@@ -178,19 +211,18 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 // if there's an error from name spinner, just return domains we already have.
                 return array('result'=>$domains);
             }
-            foreach ( $response['interface-response']['#']['DomainSuggestions'][0]['#']['Domain'] as $domain ) {
+            foreach ($response['interface-response']['#']['DomainSuggestions'][0]['#']['Domain'] as $domain) {
                 $tmpFullDomain = $domain['@']['sld'] . '.' . $domain['@']['tld'];
                 // the domain is already been checked, so ignore it here.
-                if ( in_array(strtolower($tmpFullDomain), $fullDomains) ) {
+                if (in_array(strtolower($tmpFullDomain), $fullDomains)) {
                     continue;
                 }
 
                 if (strtolower(trim($domain['@']['in_ga'])) == 'true' && strtolower(trim($domain['@']['premium'])) == 'false') {
-
                     $domains[] = array(
-                        'tld' => $domain['@']['tld'],
-                        'domain' => $domain['@']['sld'],
-                        'status' => 0 );
+                    'tld' => $domain['@']['tld'],
+                    'domain' => $domain['@']['sld'],
+                    'status' => 0 );
                 }
             }
         }
@@ -242,10 +274,10 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $arguments = array(
-            'command'                       => 'TP_GetOrder',
-            'uid'                           => $params['Login'],
-            'pw'                            => $params['Password'],
-            'TransferOrderID'               => $userPackage->getCustomField('Transfer Status')
+        'command'                       => 'TP_GetOrder',
+        'uid'                           => $params['Login'],
+        'pw'                            => $params['Password'],
+        'TransferOrderID'               => $userPackage->getCustomField('Transfer Status')
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -253,7 +285,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         $status = $response['interface-response']['#']['transferorder'][0]['#']['transferorderdetail'][0]['#']['statusdesc'][0]['#'];
 
         // We are completed, so update our internal status so we don't try to check everytime.
-        if ( $status == 'Transferred and paid successfully' ) {
+        if ($status == 'Transferred and paid successfully') {
             $userPackage->setCustomField('Transfer Status', 'Completed');
         }
 
@@ -268,15 +300,21 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     {
 
         $arguments = array(
-            'command'                       => 'TP_CreateOrder',
-            'uid'                           => $params['Login'],
-            'pw'                            => $params['Password'],
-            'DomainCount'                   => 1,
-            'AuthInfo1'                     => $params['eppCode'],
-            'OrderType'                     => 'Autoverification',
-            'tld1'                           => $params['tld'],
-            'sld1'                           => $params['sld']
+        'command'                       => 'TP_CreateOrder',
+        'uid'                           => $params['Login'],
+        'pw'                            => $params['Password'],
+        'DomainCount'                   => 1,
+        'AuthInfo1'                     => $params['eppCode'],
+        'OrderType'                     => 'Autoverification',
+        'tld1'                           => $params['tld'],
+        'sld1'                           => $params['sld']
         );
+
+        if (is_array($params['ExtendedAttributes'])) {
+            foreach ($params['ExtendedAttributes'] as $name => $value) {
+                $arguments[$name] = $value;
+            }
+        }
 
         $response = $this->_makeRequest($params, $arguments);
 
@@ -292,12 +330,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function renewDomain($params)
     {
         $arguments = array(
-            'command'                       => 'extend',
-            'uid'                           => $params['Login'],
-            'pw'                            => $params['Password'],
-            'tld'                           => $params['tld'],
-            'sld'                           => $params['sld'],
-            'NumYears'                      => $params['NumYears']
+        'command'                       => 'extend',
+        'uid'                           => $params['Login'],
+        'pw'                            => $params['Password'],
+        'tld'                           => $params['tld'],
+        'sld'                           => $params['sld'],
+        'NumYears'                      => $params['NumYears']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -309,21 +347,20 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $order_id = $response['interface-response']['#']['OrderID'][0]['#'];
 
             // Check if we have ID protect enabled for this domain, and purchase (extend) it at eNom if so.
-            if ( isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1 ) {
+            if (isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1) {
                 $arguments = array(
-                    'command'   => 'RenewServices',
-                    'uid'       => $params['Login'],
-                    'pw'        => $params['Password'],
-                    'tld'       => $params['tld'],
-                    'sld'       => $params['sld'],
-                    'Service'   => 'WPPS'
+                'command'   => 'RenewServices',
+                'uid'       => $params['Login'],
+                'pw'        => $params['Password'],
+                'tld'       => $params['tld'],
+                'sld'       => $params['sld'],
+                'Service'   => 'WPPS'
                 );
                 $response = $this->_makeRequest($params, $arguments);
             }
 
             return $order_id;
         }
-
     }
 
     // possible return values: array(code [,message])
@@ -340,59 +377,59 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         }
         // make the arguments
         $arguments = array(
-            'command'                       => 'purchase',
-            'uid'                           => $params['Login'],
-            'pw'                            => $params['Password'],
-            'tld'                           => $params['tld'],
-            'sld'                           => $params['sld'],
-            'NumYears'                      => $params['NumYears'],
-            'Renewname'                     => $params['renewname'], // Stop auto renewing the domain
-            'RegistrantOrganizationName'    => $params['RegistrantOrganizationName'],
-            'RegistrantFirstName'           => $params['RegistrantFirstName'],
-            'RegistrantLastName'            => $params['RegistrantLastName'],
-            'RegistrantEmailAddress'        => $params['RegistrantEmailAddress'],
-            'RegistrantPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
-            'RegistrantAddress1'            => $params['RegistrantAddress1'],
-            'RegistrantCity'                => $params['RegistrantCity'],
-            //'RegistrantStateProvinceChoice' => $params['RegistrantStateProvinceChoice'],
-            'RegistrantStateProvince'       => $params['RegistrantStateProvince'],
-            'RegistrantPostalCode'          => $params['RegistrantPostalCode'],
-            'RegistrantCountry'             => $params['RegistrantCountry'],
+        'command'                       => 'purchase',
+        'uid'                           => $params['Login'],
+        'pw'                            => $params['Password'],
+        'tld'                           => $params['tld'],
+        'sld'                           => $params['sld'],
+        'NumYears'                      => $params['NumYears'],
+        'Renewname'                     => $params['renewname'], // Stop auto renewing the domain
+        'RegistrantOrganizationName'    => $params['RegistrantOrganizationName'],
+        'RegistrantFirstName'           => $params['RegistrantFirstName'],
+        'RegistrantLastName'            => $params['RegistrantLastName'],
+        'RegistrantEmailAddress'        => $params['RegistrantEmailAddress'],
+        'RegistrantPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+        'RegistrantAddress1'            => $params['RegistrantAddress1'],
+        'RegistrantCity'                => $params['RegistrantCity'],
+        //'RegistrantStateProvinceChoice' => $params['RegistrantStateProvinceChoice'],
+        'RegistrantStateProvince'       => $params['RegistrantStateProvince'],
+        'RegistrantPostalCode'          => $params['RegistrantPostalCode'],
+        'RegistrantCountry'             => $params['RegistrantCountry'],
         );
 
         //for .ca domains we need to pass the registration information for the tech and admin
         if ($params['tld'] == "ca" || $params['tld'] == "eu") {
             $moreArgs = array(
-                'TechOrganizationName'    => $params['RegistrantOrganizationName'],
-                'TechFirstName'           => $params['RegistrantFirstName'],
-                'TechLastName'            => $params['RegistrantLastName'],
-                'TechEmailAddress'        => $params['RegistrantEmailAddress'],
-                'TechPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
-                'TechAddress1'            => $params['RegistrantAddress1'],
-                'TechCity'                => $params['RegistrantCity'],
-                'TechStateProvince'       => $params['RegistrantStateProvince'],
-                'TechPostalCode'          => $params['RegistrantPostalCode'],
-                'TechCountry'             => $params['RegistrantCountry'],
-                'AdminOrganizationName'    => $params['RegistrantOrganizationName'],
-                'AdminFirstName'           => $params['RegistrantFirstName'],
-                'AdminLastName'            => $params['RegistrantLastName'],
-                'AdminEmailAddress'        => $params['RegistrantEmailAddress'],
-                'AdminPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
-                'AdminAddress1'            => $params['RegistrantAddress1'],
-                'AdminCity'                => $params['RegistrantCity'],
-                'AdminStateProvince'       => $params['RegistrantStateProvince'],
-                'AdminPostalCode'          => $params['RegistrantPostalCode'],
-                'AdminCountry'             => $params['RegistrantCountry'],
-                'AuxBillingOrganizationName'    => $params['RegistrantOrganizationName'],
-                'AuxBillingFirstName'           => $params['RegistrantFirstName'],
-                'AuxBillingLastName'            => $params['RegistrantLastName'],
-                'AuxBillingEmailAddress'        => $params['RegistrantEmailAddress'],
-                'AuxBillingPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
-                'AuxBillingAddress1'            => $params['RegistrantAddress1'],
-                'AuxBillingCity'                => $params['RegistrantCity'],
-                'AuxBillingStateProvince'       => $params['RegistrantStateProvince'],
-                'AuxBillingPostalCode'          => $params['RegistrantPostalCode'],
-                'AuxBillingCountry'             => $params['RegistrantCountry']
+            'TechOrganizationName'    => $params['RegistrantOrganizationName'],
+            'TechFirstName'           => $params['RegistrantFirstName'],
+            'TechLastName'            => $params['RegistrantLastName'],
+            'TechEmailAddress'        => $params['RegistrantEmailAddress'],
+            'TechPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+            'TechAddress1'            => $params['RegistrantAddress1'],
+            'TechCity'                => $params['RegistrantCity'],
+            'TechStateProvince'       => $params['RegistrantStateProvince'],
+            'TechPostalCode'          => $params['RegistrantPostalCode'],
+            'TechCountry'             => $params['RegistrantCountry'],
+            'AdminOrganizationName'    => $params['RegistrantOrganizationName'],
+            'AdminFirstName'           => $params['RegistrantFirstName'],
+            'AdminLastName'            => $params['RegistrantLastName'],
+            'AdminEmailAddress'        => $params['RegistrantEmailAddress'],
+            'AdminPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+            'AdminAddress1'            => $params['RegistrantAddress1'],
+            'AdminCity'                => $params['RegistrantCity'],
+            'AdminStateProvince'       => $params['RegistrantStateProvince'],
+            'AdminPostalCode'          => $params['RegistrantPostalCode'],
+            'AdminCountry'             => $params['RegistrantCountry'],
+            'AuxBillingOrganizationName'    => $params['RegistrantOrganizationName'],
+            'AuxBillingFirstName'           => $params['RegistrantFirstName'],
+            'AuxBillingLastName'            => $params['RegistrantLastName'],
+            'AuxBillingEmailAddress'        => $params['RegistrantEmailAddress'],
+            'AuxBillingPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+            'AuxBillingAddress1'            => $params['RegistrantAddress1'],
+            'AuxBillingCity'                => $params['RegistrantCity'],
+            'AuxBillingStateProvince'       => $params['RegistrantStateProvince'],
+            'AuxBillingPostalCode'          => $params['RegistrantPostalCode'],
+            'AuxBillingCountry'             => $params['RegistrantCountry']
             );
             $arguments = array_merge($arguments, $moreArgs);
         }
@@ -415,19 +452,19 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         } else {
             // Try to grab the default from eNom, "usedns" means use THEIR DNS, not the custom ones in the eNom account...
             $dnsArgs = array (
-                'command'   => 'GetCusPreferences',
-                'uid'       => $params['Login'],
-                'pw'        => $params['Password']
+            'command'   => 'GetCusPreferences',
+            'uid'       => $params['Login'],
+            'pw'        => $params['Password']
             );
             $response = $this->_makeRequest($params, $dnsArgs);
 
             $done = $response['interface-response']['#']['Done'][0]['#'];
 
-            if ( $done == 'true' ) {
-                if (  $response['interface-response']['#']['CustomerPrefs'][0]['#']['UseOurDNS'][0]['#'] == 'False' ) {
+            if ($done == 'true') {
+                if ($response['interface-response']['#']['CustomerPrefs'][0]['#']['UseOurDNS'][0]['#'] == 'False') {
                     $i = 1;
-                    foreach ( $response['interface-response']['#']['CustomerPrefs'][0]['#']['NameServers'][0]['#'] as $dns ) {
-                        if ( isset($dns[0]['#']) ) {
+                    foreach ($response['interface-response']['#']['CustomerPrefs'][0]['#']['NameServers'][0]['#'] as $dns) {
+                        if (isset($dns[0]['#'])) {
                             $arguments["NS$i"] = $dns[0]['#'];
                             $i++;
                         } else {
@@ -450,16 +487,16 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $order_id = $response['interface-response']['#']['OrderID'][0]['#'];
 
             // Check if we have ID protect enabled for this domain, and purchase it at eNom if so.
-            if ( isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1 ) {
+            if (isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1) {
                 $arguments = array(
-                    'command'   => 'PurchaseServices',
-                    'uid'       => $params['Login'],
-                    'pw'        => $params['Password'],
-                    'tld'       => $params['tld'],
-                    'sld'       => $params['sld'],
-                    'Service'   => 'WPPS',
-                    'NumYears'  => $params['NumYears'],
-                    'RenewName' => 1
+                'command'   => 'PurchaseServices',
+                'uid'       => $params['Login'],
+                'pw'        => $params['Password'],
+                'tld'       => $params['tld'],
+                'sld'       => $params['sld'],
+                'Service'   => 'WPPS',
+                'NumYears'  => $params['NumYears'],
+                'RenewName' => 1
                 );
                 $response = $this->_makeRequest($params, $arguments);
             }
@@ -477,10 +514,10 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         foreach ($supportedTLDs as $tld) {
             $returnMessages .= "Checking $tld\n";
             $arguments = array(
-                'command'   => 'getExtAttributes',
-                'uid'       => $params['Login'],
-                'pw'        => $params['Password'],
-                'tld'       => $tld,
+            'command'   => 'getExtAttributes',
+            'uid'       => $params['Login'],
+            'pw'        => $params['Password'],
+            'tld'       => $tld,
             );
             $response = $this->_makeRequest($params, $arguments);
             $err = $response['interface-response']['#']['ErrCount'][0]['#'];
@@ -509,8 +546,8 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 if (@is_array($attribute['#']['Options'][0]['#']['Option'])) {
                     foreach ($attribute['#']['Options'][0]['#']['Option'] as $option) {
                         $extraAttributes[$attributeName]['options'][$option['#']['Title'][0]['#']] = array(
-                            'description'  => $option['#']['Description'][0]['#'],
-                            'value'        => $option['#']['Value'][0]['#'],
+                        'description'  => $option['#']['Description'][0]['#'],
+                        'value'        => $option['#']['Value'][0]['#'],
                         );
                         if (isset($option['#']['Requires'])) {
                             $extraAttributes[$attributeName]['options'][$option['#']['Title'][0]['#']]['requires'] = array();
@@ -551,7 +588,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $params['test'] = false;
         }
 
-        if (@$this->settings->get('plugin_enom_Use testing server') ) {
+        if (@$this->settings->get('plugin_enom_Use testing server')) {
             $params['secure'] = false;
         }
 
@@ -587,8 +624,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         //echo $response;
 
         if (is_a($response, 'CE_Error')) {
-
-            throw new CE_Exception ($response);
+            throw new CE_Exception($response);
         }
         if (!$response) {
             return false;   // don't want xmlize an empty array
@@ -599,7 +635,6 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         //some acitons might have custom error checking for specific error responses
         //but this should work for the majority of actions
         if (!$skiperrorchecking) {
-
             if (is_a($response, 'CE_Error')) {
                 throw new CE_Exception("eNom Plugin Error: ".$response);
             }
@@ -613,24 +648,22 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $RRPCode = @$response['interface-response']['#']['RRPCode'][0]['#'];
 
             if ($err > 0) {
-
                 switch ($RRPCode) {
                     case 540:
                         throw new CE_Exception("eNom Plugin Error: Error performing operation: Domain not available");
-                        break;
+                    break;
                     default:
                         $messages = "";
                         for ($i = 1; $i <= $err; $i++) {
-                            if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
-                                 substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
+                            if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
+                             substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
                                 $messages .= "Invalid IP Address.  Be sure to submit your servers IP to eNom in a support ticket.";
                                 throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
-                            } else if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 13) == 'Bad User name' ) {
+                            } elseif (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 13) == 'Bad User name') {
                                 $messages .= "Invalid Username or Password.";
                                 throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } else {
                                 $messages .= $response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'] . ' ' ;
-
                             }
                         }
 
@@ -643,8 +676,8 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             if ($err > 0) {
                 $messages = "";
                 for ($i = 1; $i <= $err; $i++) {
-                    if ( substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
-                        substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
+                    if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
+                    substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
                         CE_Lib::log(1, "eNom Error: Your IP has not been whitelisted for eNom's API.");
                     }
                 }
@@ -684,11 +717,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     {
 
         $arguments = array(
-            'command'       => 'getcontacts',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld']
+        'command'       => 'getcontacts',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld']
         );
         $response = $this->_makeRequest($params, $arguments);
 
@@ -713,21 +746,21 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 $info[$type]['Fax']       = array($this->user->lang('Fax'), $data[$type.'Fax'][0]['#']);
             } else {
                 $info[$type] = array(
-                    'OrganizationName'  => array($this->user->lang('Organization'), ''),
-                    'JobTitle'          => array($this->user->lang('Job Title'), ''),
-                    'FirstName'         => array($this->user->lang('First Name'), ''),
-                    'LastName'          => array($this->user->lang('Last Name'), ''),
-                    'Address1'          => array($this->user->lang('Address').' 1', ''),
-                    'Address2'          => array($this->user->lang('Address').' 2', ''),
-                    'City'              => array($this->user->lang('City'), ''),
-                    'StateProvChoice'   => array($this->user->lang('State or Province'), ''),
-                    'StateProvince'         => array($this->user->lang('Province').'/'.$this->user->lang('State'), ''),
-                    'Country'           => array($this->user->lang('Country'), ''),
-                    'PostalCode'        => array($this->user->lang('Postal Code'), ''),
-                    'EmailAddress'      => array($this->user->lang('E-mail'), ''),
-                    'Phone'             => array($this->user->lang('Phone'), ''),
-                    'PhoneExt'          => array($this->user->lang('Phone Ext'), ''),
-                    'Fax'               => array($this->user->lang('Fax'), ''),
+                'OrganizationName'  => array($this->user->lang('Organization'), ''),
+                'JobTitle'          => array($this->user->lang('Job Title'), ''),
+                'FirstName'         => array($this->user->lang('First Name'), ''),
+                'LastName'          => array($this->user->lang('Last Name'), ''),
+                'Address1'          => array($this->user->lang('Address').' 1', ''),
+                'Address2'          => array($this->user->lang('Address').' 2', ''),
+                'City'              => array($this->user->lang('City'), ''),
+                'StateProvChoice'   => array($this->user->lang('State or Province'), ''),
+                'StateProvince'         => array($this->user->lang('Province').'/'.$this->user->lang('State'), ''),
+                'Country'           => array($this->user->lang('Country'), ''),
+                'PostalCode'        => array($this->user->lang('Postal Code'), ''),
+                'EmailAddress'      => array($this->user->lang('E-mail'), ''),
+                'Phone'             => array($this->user->lang('Phone'), ''),
+                'PhoneExt'          => array($this->user->lang('Phone Ext'), ''),
+                'Fax'               => array($this->user->lang('Fax'), ''),
                 );
             }
         }
@@ -737,12 +770,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function setContactInformation($params)
     {
         $arguments = array(
-            'command'       => 'contacts',
-            'ContactType'   => strtoupper($params['type']),
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld']
+        'command'       => 'contacts',
+        'ContactType'   => strtoupper($params['type']),
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld']
         );
         foreach ($params as $key => $value) {
             if (strpos($key, $params['type']) !== false) {
@@ -757,11 +790,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     {
 
         $arguments = array(
-            'command'       => 'getdns',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld']
+        'command'       => 'getdns',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld']
         );
         $response = $this->_makeRequest($params, $arguments);
 
@@ -789,11 +822,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function setNameServers($params)
     {
         $arguments = array(
-            'command'       => 'modifyns',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld'],
+        'command'       => 'modifyns',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld'],
         );
 
         if ($params['default'] == true) {
@@ -814,10 +847,10 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function checkNSStatus($params)
     {
         $arguments = array(
-            'command'       => 'checknsstatus',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'checknsname'   => $params['check_ns']
+        'command'       => 'checknsstatus',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'checknsname'   => $params['check_ns']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -836,12 +869,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function registerNS($params)
     {
         $arguments = array(
-            'command'       => 'registernameserver',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'add'           => 'true',
-            'nsname'        => $params['nsname'],
-            'ip'            => $params['nsip']
+        'command'       => 'registernameserver',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'add'           => 'true',
+        'nsname'        => $params['nsname'],
+        'ip'            => $params['nsip']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -854,12 +887,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function editNS($params)
     {
         $arguments = array(
-            'command'       => 'updatenameserver',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'NS'            => $params['nsname'],
-            'OldIP'         => $params['nsoldip'],
-            'NewIP'         => $params['nsnewip']
+        'command'       => 'updatenameserver',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'NS'            => $params['nsname'],
+        'OldIP'         => $params['nsoldip'],
+        'NewIP'         => $params['nsnewip']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -872,10 +905,10 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function deleteNS($params)
     {
         $arguments = array(
-            'command'       => 'deletenameserver',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'ns'            => $params['nsname']
+        'command'       => 'deletenameserver',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'ns'            => $params['nsname']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -888,11 +921,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function getGeneralInfo($params)
     {
         $arguments = array(
-            'command'       => 'GetDomainInfo',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld']
+        'command'       => 'GetDomainInfo',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -918,7 +951,7 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
                 $response = $response['interface-response']['#'];
                 $data['autorenew'] = $response['auto-renew'][0]['#'];
             }
-        } catch ( Exception $e ) {
+        } catch (Exception $e) {
             $data['autorenew'] = 0;
         }
         return $data;
@@ -927,11 +960,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function fetchDomains($params)
     {
         $arguments = array(
-            'command'       => 'GetDomains',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'Display'       => '100',
-            'Start'         => $params['next']
+        'command'       => 'GetDomains',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'Display'       => '100',
+        'Start'         => $params['next']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -955,19 +988,18 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
         $metaData['end'] = $response['interface-response']['#']['GetDomains'][0]['#']['EndPosition'][0]['#'];
         $metaData['numPerPage'] = 25;
         return array($domainsList, $metaData);
-
     }
 
     function disablePrivateRegistration($params)
     {
         $arguments = array(
-            'command'       => 'SetRenew',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld'],
-            'RenewFlag'     => 0,
-            'WPPSRenew'     => 0
+        'command'       => 'SetRenew',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld'],
+        'RenewFlag'     => 0,
+        'WPPSRenew'     => 0
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -977,12 +1009,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function setAutorenew($params)
     {
         $arguments = array(
-            'command'       => 'SetRenew',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld'],
-            'RenewFlag'     => $params['autorenew']
+        'command'       => 'SetRenew',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld'],
+        'RenewFlag'     => $params['autorenew']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -992,11 +1024,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function getRegistrarLock($params)
     {
         $arguments = array(
-            'command'       => 'GetRegLock',
-            'uid'           => $params['Login'],
-            'pw'            => $params['Password'],
-            'sld'           => $params['sld'],
-            'tld'           => $params['tld']
+        'command'       => 'GetRegLock',
+        'uid'           => $params['Login'],
+        'pw'            => $params['Password'],
+        'sld'           => $params['sld'],
+        'tld'           => $params['tld']
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -1014,12 +1046,12 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function setRegistrarLock($params)
     {
         $arguments = array(
-            'command'           => 'SetRegLock',
-            'uid'               => $params['Login'],
-            'pw'                => $params['Password'],
-            'sld'               => $params['sld'],
-            'tld'               => $params['tld'],
-            'UnlockRegistrar'   => $params['lock']? 0 : 1 // opposite of what we store
+        'command'           => 'SetRegLock',
+        'uid'               => $params['Login'],
+        'pw'                => $params['Password'],
+        'sld'               => $params['sld'],
+        'tld'               => $params['tld'],
+        'UnlockRegistrar'   => $params['lock']? 0 : 1 // opposite of what we store
         );
 
         $response = $this->_makeRequest($params, $arguments);
@@ -1035,45 +1067,44 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function sendTransferKey($params)
     {
         $arguments = array(
-            'command'           => 'SynchAuthInfo',
-            'uid'               => $params['Login'],
-            'pw'                => $params['Password'],
-            'sld'               => $params['sld'],
-            'tld'               => $params['tld'],
-            'EmailEPP'          => 'True',
-            'RunSynchAutoInfo'  => 'True'
+        'command'           => 'SynchAuthInfo',
+        'uid'               => $params['Login'],
+        'pw'                => $params['Password'],
+        'sld'               => $params['sld'],
+        'tld'               => $params['tld'],
+        'EmailEPP'          => 'True',
+        'RunSynchAutoInfo'  => 'True'
         );
 
         $response = $this->_makeRequest($params, $arguments);
-
     }
 
     function getDNS($params)
     {
         $arguments = array(
-            'command'           => 'GetHosts',
-            'uid'               => $params['Login'],
-            'pw'                => $params['Password'],
-            'sld'               => $params['sld'],
-            'tld'               => $params['tld'],
+        'command'           => 'GetHosts',
+        'uid'               => $params['Login'],
+        'pw'                => $params['Password'],
+        'sld'               => $params['sld'],
+        'tld'               => $params['tld'],
         );
 
         $response = $this->_makeRequest($params, $arguments);
         $response = $response['interface-response']['#'];
 
         $records = array();
-        if ( isset($response['host']) && count($response['host']) > 0 ) {
+        if (isset($response['host']) && count($response['host']) > 0) {
             foreach ($response['host'] as $value) {
                 // enom returns blank results (why?)
                 if ($value['#']['hostid'][0]['#'] == '') {
                     continue;
                 }
                 $record = array(
-                    'id'            =>  $value['#']['hostid'][0]['#'],
-                    'hostname'      =>  trim(preg_replace('(\(.*\))', '', $value['#']['name'][0]['#'])), // enom adds (all) and (none) which causes problems
-                    'address'       =>  $value['#']['address'][0]['#'],
-                    'type'          =>  $value['#']['type'][0]['#']);
-                    $records[] = $record;
+                'id'            =>  $value['#']['hostid'][0]['#'],
+                'hostname'      =>  trim(preg_replace('(\(.*\))', '', $value['#']['name'][0]['#'])), // enom adds (all) and (none) which causes problems
+                'address'       =>  $value['#']['address'][0]['#'],
+                'type'          =>  $value['#']['type'][0]['#']);
+                $records[] = $record;
             }
         }
         $types = array('A', 'MXE', 'MX', 'CNAME', 'URL', 'FRAME', 'TXT');
@@ -1092,11 +1123,11 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
     function setDNS($params)
     {
         $arguments = array(
-            'command'           => 'SetHosts',
-            'uid'               => $params['Login'],
-            'pw'                => $params['Password'],
-            'sld'               => $params['sld'],
-            'tld'               => $params['tld'],
+        'command'           => 'SetHosts',
+        'uid'               => $params['Login'],
+        'pw'                => $params['Password'],
+        'sld'               => $params['sld'],
+        'tld'               => $params['tld'],
         );
 
         $updateMailService = false;
@@ -1107,21 +1138,21 @@ class PluginEnom extends RegistrarPlugin implements ICanImportDomains
             $arguments['RecordType'.$index] = $record['type'];
             $arguments['Address'.$index] = $record['address'];
             // We are setting MX records, so eNom requires us to enable mail settings first.
-            if ( $record['type'] == 'MX' ) {
+            if ($record['type'] == 'MX') {
                 $updateMailService = true;
             }
         }
 
         if ($updateMailService == true) {
             $argumentsMail = array(
-                'command'           => 'ServiceSelect',
-                'uid'               => $params['Login'],
-                'pw'                => $params['Password'],
-                'sld'               => $params['sld'],
-                'tld'               => $params['tld'],
-                'Service'           => 'EmailSet',
-                'NewOptionID'       => 1054,
-                'Update'            => 'true'
+            'command'           => 'ServiceSelect',
+            'uid'               => $params['Login'],
+            'pw'                => $params['Password'],
+            'sld'               => $params['sld'],
+            'tld'               => $params['tld'],
+            'Service'           => 'EmailSet',
+            'NewOptionID'       => 1054,
+            'Update'            => 'true'
             );
 
             $response = $this->_makeRequest($params, $argumentsMail);
