@@ -1,21 +1,14 @@
 <?php
+
 require_once 'modules/admin/models/RegistrarPlugin.php';
-require_once 'modules/domains/models/ICanImportDomains.php';
-require_once dirname(__FILE__).'/../../../library/CE/NE_Observable_Loggers.php';
 
-/**
-* @package Plugins
-* @todo PUNY encoding
-*/
-class PluginEnom extends RegistrarPlugin implements ICanImportDomains
+class PluginEnom extends RegistrarPlugin
 {
-
-    // insert credentials and uncomment to update registrars table
-    //$gSettingsArray['plugin_enom_Use testing server'] = true;
-    //_plugin_enom_updateRegistrarsTable(array('uid' => '', 'pw' => ''));
-
-    // Set a var for support of name suggest
-    var $supportsNamesuggest = true;
+    public $features = [
+        'nameSuggest' => true,
+        'importDomains' => true,
+        'importPrices' => true,
+    ];
 
     function getVariables()
     {
