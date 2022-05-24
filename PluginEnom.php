@@ -10,32 +10,32 @@ class PluginEnom extends RegistrarPlugin
         'importPrices' => true,
     ];
 
-    function getVariables()
+    public function getVariables()
     {
         $variables = array(
             lang('Plugin Name') => array(
-                'type'        =>'hidden',
-                'description' =>lang('How CE sees this plugin (not to be confused with the Signup Name)'),
-                'value'       =>lang('eNom')
+                'type'        => 'hidden',
+                'description' => lang('How CE sees this plugin (not to be confused with the Signup Name)'),
+                'value'       => lang('eNom')
             ),
             lang('Use testing server') => array(
-                'type'        =>'yesno',
-                'description' =>lang('Select Yes if you wish to use Enom\'s testing environment, so that transactions are not actually made. For this to work, you must first register you server\'s ip in Enom\'s testing environment, and your server\'s name servers must be registered there as well.'),
-                'value'       =>0
+                'type'        => 'yesno',
+                'description' => lang('Select Yes if you wish to use Enom\'s testing environment, so that transactions are not actually made. For this to work, you must first register you server\'s ip in Enom\'s testing environment, and your server\'s name servers must be registered there as well.'),
+                'value'       => 0
             ),
             lang('Login') => array(
-                'type'        =>'text',
-                'description' =>lang('Enter your username for your Enom reseller account.'),
-                'value'       =>''
+                'type'        => 'text',
+                'description' => lang('Enter your username for your Enom reseller account.'),
+                'value'       => ''
             ),
             lang('Password') => array(
-                'type'        =>'password',
-                'description' =>lang('Enter the password for your Enom reseller account.'),
-                'value'       =>'',
+                'type'        => 'password',
+                'description' => lang('Enter the password for your Enom reseller account.'),
+                'value'       => '',
             ),
             lang('Supported Features') => array(
                 'type'        => 'label',
-                'description' => '* '.lang('TLD Lookup').'<br>* '.lang('Domain Registration').' <br>* '.lang('Domain Registration with ID Protect').' <br>* '.lang('Existing Domain Importing').' <br>* '.lang('Get / Set Auto Renew Status').' <br>* '.lang('Get / Set DNS Records').' <br>* '.lang('Get / Set Nameserver Records').' <br>* '.lang('Get / Set Contact Information').' <br>* '.lang('Get / Set Registrar Lock').' <br>* '.lang('Initiate Domain Transfer').' <br>* '.lang('Automatically Renew Domain').' <br>* '.lang('Send Transfer Key') . '<br>* '.lang('NameSpinner'),
+                'description' => '* ' . lang('TLD Lookup') . '<br>* ' . lang('Domain Registration') . ' <br>* ' . lang('Domain Registration with ID Protect') . ' <br>* ' . lang('Existing Domain Importing') . ' <br>* ' . lang('Get / Set Auto Renew Status') . ' <br>* ' . lang('Get / Set DNS Records') . ' <br>* ' . lang('Get / Set Nameserver Records') . ' <br>* ' . lang('Get / Set Contact Information') . ' <br>* ' . lang('Get / Set Registrar Lock') . ' <br>* ' . lang('Initiate Domain Transfer') . ' <br>* ' . lang('Automatically Renew Domain') . ' <br>* ' . lang('Send Transfer Key') . '<br>* ' . lang('NameSpinner'),
                 'value'       => ''
             ),
             lang('Actions') => array(
@@ -66,7 +66,7 @@ class PluginEnom extends RegistrarPlugin
             'pw' => $params['Password'],
             'ProductType' => 10
         );
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $data = $response['interface-response']['#']['productstructure'][0]['#']['product'];
         $tlds = [];
@@ -94,7 +94,7 @@ class PluginEnom extends RegistrarPlugin
         return $tlds;
     }
 
-    function _getSupportedTLDs($params)
+    public function getSupportedTLDs($params)
     {
         $arguments = array(
             'command' => 'gettldlist',
@@ -102,7 +102,7 @@ class PluginEnom extends RegistrarPlugin
             'pw'      => $params['Password'],
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         $tlds = array();
         foreach ($response['interface-response']['#']['tldlist'][0]['#']['tld'] as $value) {
             $tlds[] = $value['#']['tld'][0]['#'];
@@ -117,7 +117,7 @@ class PluginEnom extends RegistrarPlugin
     // 2:       Registrar Error, domain extension not recognized or supported
     // 3:       Domain invalid
     // 5:       Could not contact registry to lookup domain
-    function checkDomain($params)
+    public function checkDomain($params)
     {
         // array of full domains that we're returning, used for easy searching.
         $fullDomains = array();
@@ -145,7 +145,7 @@ class PluginEnom extends RegistrarPlugin
             $arguments['TLDList'] = implode(",", $params['namesuggest']);
         }
 
-        $response = $this->_makeRequest($params, $arguments, true);
+        $response = $this->makeRequest($params, $arguments, true);
 
         if (!$response) {
             return array(5);
@@ -186,6 +186,12 @@ class PluginEnom extends RegistrarPlugin
                     $status = 2;
                     break;
             }
+
+            if (isset($response['interface-response']['#']['IsPremiumName'][$key]) && isset($response['interface-response']['#']['IsPremiumName'][$key]['#'])) {
+                $status = 1;
+            }
+
+
             $fullDomains[] = strtolower($domain['#']);
             $aDomain = DomainNameGateway::splitDomain($domain['#']);
             $domains[] = array(
@@ -206,7 +212,7 @@ class PluginEnom extends RegistrarPlugin
                 'SearchTerm'    => $params['sld'],
             );
 
-            $response = $this->_makeRequest($params, $arguments, true);
+            $response = $this->makeRequest($params, $arguments, true);
             $err = $response['interface-response']['#']['ErrCount'][0]['#'];
             if ($err > 0) {
                 // if there's an error from name spinner, just return domains we already have.
@@ -241,11 +247,11 @@ class PluginEnom extends RegistrarPlugin
      *
      * @param array $params
      */
-    function doDomainTransferWithPopup($params)
+    public function doDomainTransferWithPopup($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $transferid = $this->initiateTransfer($this->buildTransferParams($userPackage, $params));
-        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar").'-'.$transferid);
+        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar") . '-' . $transferid);
         $userPackage->setCustomField('Transfer Status', $transferid);
         return "Transfer of has been initiated.";
     }
@@ -255,11 +261,11 @@ class PluginEnom extends RegistrarPlugin
      *
      * @param array $params
      */
-    function doRegister($params)
+    public function doRegister($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $orderid = $this->registerDomain($this->buildRegisterParams($userPackage, $params));
-        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar").'-'.$orderid);
+        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar") . '-' . $orderid);
         return $userPackage->getCustomField('Domain Name') . ' has been registered.';
     }
 
@@ -268,15 +274,15 @@ class PluginEnom extends RegistrarPlugin
      *
      * @param array $params
      */
-    function doRenew($params)
+    public function doRenew($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $orderid = $this->renewDomain($this->buildRenewParams($userPackage, $params));
-        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar").'-'.$orderid);
+        $userPackage->setCustomField("Registrar Order Id", $userPackage->getCustomField("Registrar") . '-' . $orderid);
         return $userPackage->getCustomField('Domain Name') . ' has been renewed.';
     }
 
-    function getTransferStatus($params)
+    public function getTransferStatus($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $arguments = array(
@@ -286,7 +292,7 @@ class PluginEnom extends RegistrarPlugin
             'TransferOrderID' => $userPackage->getCustomField('Transfer Status')
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $status = $response['interface-response']['#']['transferorder'][0]['#']['transferorderdetail'][0]['#']['statusdesc'][0]['#'];
 
@@ -302,7 +308,7 @@ class PluginEnom extends RegistrarPlugin
     // -1:  error trying to transfer domain
     // 0:   domain not available
     // >0:  Operation successfull, returns orderid
-    function initiateTransfer($params)
+    public function initiateTransfer($params)
     {
 
         $arguments = array(
@@ -322,7 +328,7 @@ class PluginEnom extends RegistrarPlugin
             }
         }
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $order_id = $response['interface-response']['#']['transferorder'][0]['#']['transferorderid'][0]['#'];
 
@@ -333,7 +339,7 @@ class PluginEnom extends RegistrarPlugin
     // -1:  error trying to renew domain
     // 0:   domain not available
     // >0:  Operation successfull, returns orderid
-    function renewDomain($params)
+    public function renewDomain($params)
     {
         $arguments = array(
             'command'  => 'extend',
@@ -344,7 +350,7 @@ class PluginEnom extends RegistrarPlugin
             'NumYears' => $params['NumYears']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         // RRPCode not set when there's an error (except for case 540), thus the @
         $RRPCode = @$response['interface-response']['#']['RRPCode'][0]['#'];
@@ -362,7 +368,7 @@ class PluginEnom extends RegistrarPlugin
                     'sld'     => $params['sld'],
                     'Service' => 'WPPS'
                 );
-                $response = $this->_makeRequest($params, $arguments);
+                $response = $this->makeRequest($params, $arguments);
             }
 
             return $order_id;
@@ -373,7 +379,7 @@ class PluginEnom extends RegistrarPlugin
     // -1:  error trying to purchase domain
     // 0:   domain not available
     // >0:  Operation successfull, returns orderid
-    function registerDomain($params)
+    public function registerDomain($params)
     {
         // Check if renewname was passed to avoid any errors
         // Things like isset don't work here as they class =0 as not being set, so we check if the value
@@ -394,7 +400,7 @@ class PluginEnom extends RegistrarPlugin
             'RegistrantFirstName'           => $params['RegistrantFirstName'],
             'RegistrantLastName'            => $params['RegistrantLastName'],
             'RegistrantEmailAddress'        => $params['RegistrantEmailAddress'],
-            'RegistrantPhone'               => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+            'RegistrantPhone'               => $this->validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
             'RegistrantAddress1'            => $params['RegistrantAddress1'],
             'RegistrantCity'                => $params['RegistrantCity'],
             //'RegistrantStateProvinceChoice' => $params['RegistrantStateProvinceChoice'],
@@ -410,7 +416,7 @@ class PluginEnom extends RegistrarPlugin
                 'TechFirstName'              => $params['RegistrantFirstName'],
                 'TechLastName'               => $params['RegistrantLastName'],
                 'TechEmailAddress'           => $params['RegistrantEmailAddress'],
-                'TechPhone'                  => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+                'TechPhone'                  => $this->validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
                 'TechAddress1'               => $params['RegistrantAddress1'],
                 'TechCity'                   => $params['RegistrantCity'],
                 'TechStateProvince'          => $params['RegistrantStateProvince'],
@@ -420,7 +426,7 @@ class PluginEnom extends RegistrarPlugin
                 'AdminFirstName'             => $params['RegistrantFirstName'],
                 'AdminLastName'              => $params['RegistrantLastName'],
                 'AdminEmailAddress'          => $params['RegistrantEmailAddress'],
-                'AdminPhone'                 => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+                'AdminPhone'                 => $this->validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
                 'AdminAddress1'              => $params['RegistrantAddress1'],
                 'AdminCity'                  => $params['RegistrantCity'],
                 'AdminStateProvince'         => $params['RegistrantStateProvince'],
@@ -430,7 +436,7 @@ class PluginEnom extends RegistrarPlugin
                 'AuxBillingFirstName'        => $params['RegistrantFirstName'],
                 'AuxBillingLastName'         => $params['RegistrantLastName'],
                 'AuxBillingEmailAddress'     => $params['RegistrantEmailAddress'],
-                'AuxBillingPhone'            => $this->_validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
+                'AuxBillingPhone'            => $this->validatePhone($params['RegistrantPhone'], $params['RegistrantCountry']),
                 'AuxBillingAddress1'         => $params['RegistrantAddress1'],
                 'AuxBillingCity'             => $params['RegistrantCity'],
                 'AuxBillingStateProvince'    => $params['RegistrantStateProvince'],
@@ -462,7 +468,7 @@ class PluginEnom extends RegistrarPlugin
                 'uid'     => $params['Login'],
                 'pw'      => $params['Password']
             );
-            $response = $this->_makeRequest($params, $dnsArgs);
+            $response = $this->makeRequest($params, $dnsArgs);
 
             $done = $response['interface-response']['#']['Done'][0]['#'];
 
@@ -484,7 +490,7 @@ class PluginEnom extends RegistrarPlugin
         }
 
         // make the request to register the domain now
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         // RRPCode not set when there's an error (except for case 540), thus the @
         $RRPCode = @$response['interface-response']['#']['RRPCode'][0]['#'];
@@ -504,19 +510,19 @@ class PluginEnom extends RegistrarPlugin
                     'NumYears'  => $params['NumYears'],
                     'RenewName' => 1
                 );
-                $response = $this->_makeRequest($params, $arguments);
+                $response = $this->makeRequest($params, $arguments);
             }
             return $order_id;
         }
     }
 
     // called from outside CE once in a while
-    function _plugin_enom_updateRegistrarsTable($params)
+    public function updateRegistrarsTable($params)
     {
         $returnMessages = '';
 
-        $supportedTLDs = $this->_getSupportedTLDs($params);
-        $returnMessages .= "This plugin supports ".count($supportedTLDs)." tlds\n\n";
+        $supportedTLDs = $this->getSupportedTLDs($params);
+        $returnMessages .= "This plugin supports " . count($supportedTLDs) . " tlds\n\n";
         foreach ($supportedTLDs as $tld) {
             $returnMessages .= "Checking $tld\n";
             $arguments = array(
@@ -525,7 +531,7 @@ class PluginEnom extends RegistrarPlugin
                 'pw'      => $params['Password'],
                 'tld'     => $tld,
             );
-            $response = $this->_makeRequest($params, $arguments);
+            $response = $this->makeRequest($params, $arguments);
             $err = $response['interface-response']['#']['ErrCount'][0]['#'];
             if ($err > 0) {
                 return array(
@@ -583,7 +589,7 @@ class PluginEnom extends RegistrarPlugin
         return $returnMessages;
     }
 
-    function _makeRequest($params, $arguments, $skiperrorchecking = false)
+    public function makeRequest($params, $arguments, $skiperrorchecking = false)
     {
         include_once 'library/CE/XmlFunctions.php';
         include_once 'library/CE/NE_Network.php';
@@ -609,7 +615,7 @@ class PluginEnom extends RegistrarPlugin
             $i++;
         }
 
-        CE_Lib::log(4, 'Enom Params: '.$request);
+        CE_Lib::log(4, 'Enom Params: ' . $request);
         //echo "$request\n";
         // certificate validation doesn't work well under windows
         $response = NE_Network::curlRequest($this->settings, $request, false, false, true);
@@ -628,7 +634,7 @@ class PluginEnom extends RegistrarPlugin
         //but this should work for the majority of actions
         if (!$skiperrorchecking) {
             if (is_a($response, 'CE_Error')) {
-                throw new CE_Exception("eNom Plugin Error: ".$response);
+                throw new CE_Exception("eNom Plugin Error: " . $response);
             }
             if (!is_array($response)) {
                 throw new CE_Exception('eNom Plugin Error: Failed to communicate with Enom', EXCEPTION_CODE_CONNECTION_ISSUE);
@@ -647,13 +653,12 @@ class PluginEnom extends RegistrarPlugin
                     default:
                         $messages = "";
                         for ($i = 1; $i <= $err; $i++) {
-                            if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
-                             substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
+                            if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' || substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
                                 $messages .= "Invalid IP Address.  Be sure to submit your servers IP to eNom in a support ticket.";
-                                throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
+                                throw new CE_Exception("eNom Plugin Error: " . $messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } elseif (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 13) == 'Bad User name') {
                                 $messages .= "Invalid Username or Password.";
-                                throw new CE_Exception("eNom Plugin Error: ".$messages, EXCEPTION_CODE_CONNECTION_ISSUE);
+                                throw new CE_Exception("eNom Plugin Error: " . $messages, EXCEPTION_CODE_CONNECTION_ISSUE);
                             } else {
                                 $messages .= $response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'] . ' ' ;
                             }
@@ -661,15 +666,14 @@ class PluginEnom extends RegistrarPlugin
 
                         break;
                 }
-                throw new CE_Exception("eNom Plugin Error: ". $messages);
+                throw new CE_Exception("eNom Plugin Error: " . $messages);
             }
         } else {
             $err = $response['interface-response']['#']['ErrCount'][0]['#'];
             if ($err > 0) {
                 $messages = "";
                 for ($i = 1; $i <= $err; $i++) {
-                    if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||
-                    substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
+                    if (substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 17) == 'Invalid client IP' ||     substr($response['interface-response']['#']['errors'][0]['#']["Err$i"][0]['#'], 0, 39) == 'User not permitted from this IP address') {
                         CE_Lib::log(1, "eNom Error: Your IP has not been whitelisted for eNom's API.");
                     }
                 }
@@ -679,7 +683,7 @@ class PluginEnom extends RegistrarPlugin
         return $response;
     }
 
-    function _validatePhone($phone, $country)
+    private function validatePhone($phone, $country)
     {
         // strip all non numerical values
         $phone = preg_replace('/[^\d]/', '', $phone);
@@ -705,7 +709,7 @@ class PluginEnom extends RegistrarPlugin
         return "+$code.$phone";
     }
 
-    function getContactInformation($params)
+    public function getContactInformation($params)
     {
         $arguments = array(
             'command' => 'getcontacts',
@@ -715,7 +719,7 @@ class PluginEnom extends RegistrarPlugin
             'tld'     => $params['tld']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $info = array();
         foreach (array('Registrant', 'AuxBilling', 'Admin', 'Tech') as $type) {
@@ -723,77 +727,77 @@ class PluginEnom extends RegistrarPlugin
             if (is_array($data)) {
                 $info[$type]['OrganizationName'] = array(
                     $this->user->lang('Organization'),
-                    $data[$type.'OrganizationName'][0]['#']
+                    $data[$type . 'OrganizationName'][0]['#']
                 );
 
                 $info[$type]['JobTitle'] = array(
                     $this->user->lang('Job Title'),
-                    $data[$type.'JobTitle'][0]['#']
+                    $data[$type . 'JobTitle'][0]['#']
                 );
 
                 $info[$type]['FirstName'] = array(
                     $this->user->lang('First Name'),
-                    $data[$type.'FirstName'][0]['#']
+                    $data[$type . 'FirstName'][0]['#']
                 );
 
                 $info[$type]['LastName'] = array(
                     $this->user->lang('Last Name'),
-                    $data[$type.'LastName'][0]['#']
+                    $data[$type . 'LastName'][0]['#']
                 );
 
                 $info[$type]['Address1'] = array(
-                    $this->user->lang('Address').' 1',
-                    $data[$type.'Address1'][0]['#']
+                    $this->user->lang('Address') . ' 1',
+                    $data[$type . 'Address1'][0]['#']
                 );
 
                 $info[$type]['Address2'] = array(
-                    $this->user->lang('Address').' 2',
-                    $data[$type.'Address2'][0]['#']
+                    $this->user->lang('Address') . ' 2',
+                    $data[$type . 'Address2'][0]['#']
                 );
 
                 $info[$type]['City'] = array(
                     $this->user->lang('City'),
-                    $data[$type.'City'][0]['#']
+                    $data[$type . 'City'][0]['#']
                 );
 
                 $info[$type]['StateProvChoice'] = array(
                     $this->user->lang('State or Province'),
-                    $data[$type.'StateProvinceChoice'][0]['#']
+                    $data[$type . 'StateProvinceChoice'][0]['#']
                 );
 
                 $info[$type]['StateProvince'] = array(
-                    $this->user->lang('Province').'/'.$this->user->lang('State'),
-                    $data[$type.'StateProvince'][0]['#']
+                    $this->user->lang('Province') . '/' . $this->user->lang('State'),
+                    $data[$type . 'StateProvince'][0]['#']
                 );
 
                 $info[$type]['Country'] = array(
                     $this->user->lang('Country'),
-                    $data[$type.'Country'][0]['#']
+                    $data[$type . 'Country'][0]['#']
                 );
 
                 $info[$type]['PostalCode'] = array(
                     $this->user->lang('Postal Code'),
-                    $data[$type.'PostalCode'][0]['#']
+                    $data[$type . 'PostalCode'][0]['#']
                 );
 
                 $info[$type]['EmailAddress'] = array(
                     $this->user->lang('E-mail'),
-                    $data[$type.'EmailAddress'][0]['#']
+                    $data[$type . 'EmailAddress'][0]['#']
                 );
 
                 $info[$type]['Phone'] = array(
                     $this->user->lang('Phone'),
-                    $data[$type.'Phone'][0]['#']
+                    $data[$type . 'Phone'][0]['#']
                 );
 
                 $info[$type]['PhoneExt'] = array(
                     $this->user->lang('Phone Ext'),
-                    $data[$type.'PhoneExt'][0]['#']
+                    $data[$type . 'PhoneExt'][0]['#']
                 );
 
                 $info[$type]['Fax'] = array(
                     $this->user->lang('Fax'),
-                    $data[$type.'Fax'][0]['#']
+                    $data[$type . 'Fax'][0]['#']
                 );
             } else {
                 $info[$type] = array(
@@ -814,11 +818,11 @@ class PluginEnom extends RegistrarPlugin
                         ''
                     ),
                     'Address1'         => array(
-                        $this->user->lang('Address').' 1',
+                        $this->user->lang('Address') . ' 1',
                         ''
                     ),
                     'Address2'         => array(
-                        $this->user->lang('Address').' 2',
+                        $this->user->lang('Address') . ' 2',
                         ''
                     ),
                     'City'             => array(
@@ -830,7 +834,7 @@ class PluginEnom extends RegistrarPlugin
                         ''
                     ),
                     'StateProvince'    => array(
-                        $this->user->lang('Province').'/'.$this->user->lang('State'),
+                        $this->user->lang('Province') . '/' . $this->user->lang('State'),
                         ''
                     ),
                     'Country'          => array(
@@ -863,7 +867,7 @@ class PluginEnom extends RegistrarPlugin
         return $info;
     }
 
-    function setContactInformation($params)
+    public function setContactInformation($params)
     {
         $arguments = array(
             'command'     => 'contacts',
@@ -879,11 +883,11 @@ class PluginEnom extends RegistrarPlugin
                 $arguments[str_replace('_', '', $key)] = $value;
             }
         }
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         return $this->user->lang('Contact Information updated successfully.');
     }
 
-    function getNameServers($params)
+    public function getNameServers($params)
     {
 
         $arguments = array(
@@ -893,7 +897,7 @@ class PluginEnom extends RegistrarPlugin
             'sld'     => $params['sld'],
             'tld'     => $params['tld']
         );
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $info = array();
         if ($response['interface-response']['#']['UseDNS'][0]['#'] == 'default') {
@@ -916,7 +920,7 @@ class PluginEnom extends RegistrarPlugin
         return $info;
     }
 
-    function setNameServers($params)
+    public function setNameServers($params)
     {
         $arguments = array(
             'command' => 'modifyns',
@@ -931,17 +935,17 @@ class PluginEnom extends RegistrarPlugin
         } else {
             $arguments['usedns'] = '';
             foreach ($params['ns'] as $key => $value) {
-                $arguments['ns'.$key] = $value;
+                $arguments['ns' . $key] = $value;
             }
         }
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         $response = $response['interface-response']['#'];
 
         return $response['RRPText'][0]['#'];
     }
 
-    function checkNSStatus($params)
+    public function checkNSStatus($params)
     {
         $arguments = array(
             'command'     => 'checknsstatus',
@@ -950,20 +954,20 @@ class PluginEnom extends RegistrarPlugin
             'checknsname' => $params['check_ns']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $response = $response['interface-response']['#'];
 
         if ($response['NsCheckSuccess'][0]['#'] == 1) {
             $data = $response['CheckNsStatus'][0]['#'];
-            return $this->_traverseStatus($data);
+            return $this->traverseStatus($data);
         } else {
             // Couldn't find any information about this domain.
             return ($this->user->lang('No Results Found.'));
         }
     }
 
-    function registerNS($params)
+    public function registerNS($params)
     {
         $arguments = array(
             'command' => 'registernameserver',
@@ -974,14 +978,14 @@ class PluginEnom extends RegistrarPlugin
             'ip'      => $params['nsip']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $response = $response['interface-response']['#'];
 
         return $this->user->lang('Name Server registered successfully.');
     }
 
-    function editNS($params)
+    public function editNS($params)
     {
         $arguments = array(
             'command' => 'updatenameserver',
@@ -992,14 +996,14 @@ class PluginEnom extends RegistrarPlugin
             'NewIP'   => $params['nsnewip']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $response = $response['interface-response']['#'];
 
         return $this->user->lang('Name Server edited successfully.');
     }
 
-    function deleteNS($params)
+    public function deleteNS($params)
     {
         $arguments = array(
             'command' => 'deletenameserver',
@@ -1008,14 +1012,14 @@ class PluginEnom extends RegistrarPlugin
             'ns'      => $params['nsname']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $response = $response['interface-response']['#'];
 
         return $this->user->lang('Name Server deleted successfully.');
     }
 
-    function getGeneralInfo($params)
+    public function getGeneralInfo($params)
     {
         $arguments = array(
             'command' => 'GetDomainInfo',
@@ -1025,7 +1029,7 @@ class PluginEnom extends RegistrarPlugin
             'tld'     => $params['tld']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $response = $response['interface-response']['#'];
 
@@ -1041,7 +1045,7 @@ class PluginEnom extends RegistrarPlugin
 
         try {
             $arguments['command'] = 'GetRenew';
-            $response = $this->_makeRequest($params, $arguments);
+            $response = $this->makeRequest($params, $arguments);
             if (!is_array($response)) {
                 $data['autorenew'] = 0;
             } else {
@@ -1054,7 +1058,7 @@ class PluginEnom extends RegistrarPlugin
         return $data;
     }
 
-    function fetchDomains($params)
+    public function fetchDomains($params)
     {
         $arguments = array(
             'command' => 'GetDomains',
@@ -1064,7 +1068,7 @@ class PluginEnom extends RegistrarPlugin
             'Start'   => $params['next']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         $domainsList = array();
         if ($response['interface-response']['#']['GetDomains'][0]['#']['DomainCount'][0]['#'] > 0) {
@@ -1074,7 +1078,7 @@ class PluginEnom extends RegistrarPlugin
                 $data['id'] = $domain['DomainNameID'][0]['#'];
                 $data['sld'] = $domain['sld'][0]['#'];
                 $data['tld'] = $domain['tld'][0]['#'];
-                $data['exp'] = isset($domain['expiration-date'][0]['#'])? $domain['expiration-date'][0]['#']: 'n/a';
+                $data['exp'] = isset($domain['expiration-date'][0]['#']) ? $domain['expiration-date'][0]['#'] : 'n/a';
                 $domainsList[] = $data;
             }
         }
@@ -1090,7 +1094,7 @@ class PluginEnom extends RegistrarPlugin
         );
     }
 
-    function disablePrivateRegistration($params)
+    public function disablePrivateRegistration($params)
     {
         $arguments = array(
             'command'   => 'SetRenew',
@@ -1102,11 +1106,11 @@ class PluginEnom extends RegistrarPlugin
             'WPPSRenew' => 0
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         return "Domain updated successfully";
     }
 
-    function setAutorenew($params)
+    public function setAutorenew($params)
     {
         $arguments = array(
             'command'   => 'SetRenew',
@@ -1117,11 +1121,11 @@ class PluginEnom extends RegistrarPlugin
             'RenewFlag' => $params['autorenew']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         return "Domain updated successfully";
     }
 
-    function getRegistrarLock($params)
+    public function getRegistrarLock($params)
     {
         $arguments = array(
             'command' => 'GetRegLock',
@@ -1131,19 +1135,19 @@ class PluginEnom extends RegistrarPlugin
             'tld'     => $params['tld']
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         return $response['interface-response']['#']['reg-lock'][0]['#'];
     }
 
-    function doSetRegistrarLock($params)
+    public function doSetRegistrarLock($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $this->setRegistrarLock($this->buildLockParams($userPackage, $params));
         return "Updated Registrar Lock.";
     }
 
-    function setRegistrarLock($params)
+    public function setRegistrarLock($params)
     {
         $arguments = array(
             'command'         => 'SetRegLock',
@@ -1151,20 +1155,20 @@ class PluginEnom extends RegistrarPlugin
             'pw'              => $params['Password'],
             'sld'             => $params['sld'],
             'tld'             => $params['tld'],
-            'UnlockRegistrar' => $params['lock']? 0 : 1 // opposite of what we store
+            'UnlockRegistrar' => $params['lock'] ? 0 : 1 // opposite of what we store
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
     }
 
-    function doSendTransferKey($params)
+    public function doSendTransferKey($params)
     {
         $userPackage = new UserPackage($params['userPackageId']);
         $this->sendTransferKey($this->buildRegisterParams($userPackage, $params));
         return 'Successfully sent auth info for ' . $userPackage->getCustomField('Domain Name');
     }
 
-    function sendTransferKey($params)
+    public function sendTransferKey($params)
     {
         $arguments = array(
             'command'          => 'SynchAuthInfo',
@@ -1176,10 +1180,10 @@ class PluginEnom extends RegistrarPlugin
             'RunSynchAutoInfo' => 'True'
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
     }
 
-    function getDNS($params)
+    public function getDNS($params)
     {
         $arguments = array(
             'command' => 'GetHosts',
@@ -1189,7 +1193,7 @@ class PluginEnom extends RegistrarPlugin
             'tld'     => $params['tld'],
         );
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         $response = $response['interface-response']['#'];
 
         $records = array();
@@ -1221,7 +1225,7 @@ class PluginEnom extends RegistrarPlugin
         );
 
         $arguments['command'] = 'getdns';
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
 
         if ($response['interface-response']['#']['UseDNS'][0]['#'] == 'default') {
             $default = true;
@@ -1236,7 +1240,7 @@ class PluginEnom extends RegistrarPlugin
         );
     }
 
-    function setDNS($params)
+    public function setDNS($params)
     {
         $arguments = array(
             'command' => 'SetHosts',
@@ -1250,9 +1254,9 @@ class PluginEnom extends RegistrarPlugin
         // build data to send to enom
         foreach ($params['records'] as $index => $record) {
             $index++; // enom starts at 1
-            $arguments['HostName'.$index] = $record['hostname'];
-            $arguments['RecordType'.$index] = $record['type'];
-            $arguments['Address'.$index] = $record['address'];
+            $arguments['HostName' . $index] = $record['hostname'];
+            $arguments['RecordType' . $index] = $record['type'];
+            $arguments['Address' . $index] = $record['address'];
             // We are setting MX records, so eNom requires us to enable mail settings first.
             if ($record['type'] == 'MX') {
                 $updateMailService = true;
@@ -1271,10 +1275,10 @@ class PluginEnom extends RegistrarPlugin
                 'Update'      => 'true'
             );
 
-            $response = $this->_makeRequest($params, $argumentsMail);
+            $response = $this->makeRequest($params, $argumentsMail);
         }
 
-        $response = $this->_makeRequest($params, $arguments);
+        $response = $this->makeRequest($params, $arguments);
         return ($this->user->lang("Host information updated successfully"));
     }
 
@@ -1284,17 +1288,17 @@ class PluginEnom extends RegistrarPlugin
      * @param mixed $arr The data to iterate over
      * @return String The stringified version of the status.
      */
-    function _traverseStatus($arr)
+    private function traverseStatus($arr)
     {
         if (!is_array($arr)) {
-            return $arr.'<br />';
+            return $arr . '<br />';
         }
         $str = '';
         foreach ($arr as $key => $val) {
             if (is_array($val[0]['#'])) {
-                $str .= $this->_traverseStatus($val[0]['#']);
+                $str .= $this->traverseStatus($val[0]['#']);
             } else {
-                $str .= $key.' = '.$val[0]['#'].'<br />';
+                $str .= $key . ' = ' . $val[0]['#'] . '<br />';
             }
         }
         return $str;
