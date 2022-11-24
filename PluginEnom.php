@@ -556,6 +556,7 @@ class PluginEnom extends RegistrarPlugin
                 $attributeName = $attribute['#']['Name'][0]['#'];
                 $extraAttributes[$attributeName]['ID']           = $attribute['#']['ID'][0]['#'];
                 $extraAttributes[$attributeName]['description']  = $attribute['#']['Description'][0]['#'];
+                $extraAttributes[$attributeName]['required']  = $attribute['#']['Required'][0]['#'];
 
                 $extraAttributes[$attributeName]['options'] = array();
                 if (@is_array($attribute['#']['Options'][0]['#']['Option'])) {
