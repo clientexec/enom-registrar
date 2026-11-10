@@ -341,38 +341,65 @@ class PluginEnom extends RegistrarPlugin
     // >0:  Operation successfull, returns orderid
     public function renewDomain($params)
     {
+        $status = $this->getRegistrationStatus($params);
+        $normalized = mb_strtolower(str_replace(array(' ', '-', '_'), '', $status));
+
         $arguments = array(
-            'command'  => 'extend',
             'uid'      => $params['Login'],
             'pw'       => $params['Password'],
-            'tld'      => $params['tld'],
-            'sld'      => $params['sld'],
-            'NumYears' => $params['NumYears']
+            'NumYears' => $params['NumYears'],
         );
 
-        $response = $this->makeRequest($params, $arguments);
-
-        // RRPCode not set when there's an error (except for case 540), thus the @
-        $RRPCode = @$response['interface-response']['#']['RRPCode'][0]['#'];
-
-        if ($RRPCode == 200 || $RRPCode == 1300) {
-            $order_id = $response['interface-response']['#']['OrderID'][0]['#'];
-
-            // Check if we have ID protect enabled for this domain, and purchase (extend) it at eNom if so.
-            if (isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1) {
-                $arguments = array(
-                    'command' => 'RenewServices',
-                    'uid'     => $params['Login'],
-                    'pw'      => $params['Password'],
-                    'tld'     => $params['tld'],
-                    'sld'     => $params['sld'],
-                    'Service' => 'WPPS'
-                );
-                $response = $this->makeRequest($params, $arguments);
-            }
-
-            return $order_id;
+        $isExpiredRenewal = (mb_strpos($normalized, 'expired') !== false);
+        if ($isExpiredRenewal) {
+            $arguments['command'] = 'UpdateExpiredDomains';
+            $arguments['DomainName'] = $params['sld'] . '.' . $params['tld'];
+        } elseif (mb_strpos($normalized, 'registered') !== false) {
+            $arguments['command'] = 'extend';
+            $arguments['tld'] = $params['tld'];
+            $arguments['sld'] = $params['sld'];
+        } else {
+            throw new CE_Exception('eNom Plugin Error: Cannot renew ' . $params['sld'] . '.' . $params['tld'] . ', registration status is ' . $status);
         }
+
+        CE_Lib::log(4, 'eNom: renewing with command ' . $arguments['command'] . ' for status ' . $status);
+        $response = $this->makeRequest($params, $arguments);
+        $response = $response['interface-response']['#'];
+
+        if ($isExpiredRenewal) {
+            // UpdateExpiredDomains returns no RRPCode, success is Status under ReactivateDomainName
+            $reactivated = @$response['ReactivateDomainName'][0]['#']['Status'][0]['#'];
+            if (mb_strtolower(trim($reactivated)) !== 'true') {
+                throw new CE_Exception('eNom Plugin Error: Reactivation failed for ' . $params['sld'] . '.' . $params['tld']);
+            }
+            $order_id = @$response['ReactivateDomainName'][0]['#']['OrderID'][0]['#'];
+        } else {
+            // RRPCode not set when there's an error (except for case 540), thus the @
+            $RRPCode = @$response['RRPCode'][0]['#'];
+            if ($RRPCode != 200 && $RRPCode != 1300) {
+                throw new CE_Exception('eNom Plugin Error: Renewal failed for ' . $params['sld'] . '.' . $params['tld'] . ' with RRPCode ' . $RRPCode);
+            }
+            $order_id = @$response['OrderID'][0]['#'];
+        }
+
+        if ($order_id == '') {
+            CE_Lib::log(4, 'eNom: renewal succeeded but no OrderID returned for ' . $params['sld'] . '.' . $params['tld']);
+        }
+
+        // Check if we have ID protect enabled for this domain, and purchase (extend) it at eNom if so.
+        if (isset($params['package_addons']['IDPROTECT']) && $params['package_addons']['IDPROTECT'] == 1) {
+            $arguments = array(
+                'command' => 'RenewServices',
+                'uid'     => $params['Login'],
+                'pw'      => $params['Password'],
+                'tld'     => $params['tld'],
+                'sld'     => $params['sld'],
+                'Service' => 'WPPS'
+            );
+            $response = $this->makeRequest($params, $arguments);
+        }
+
+        return $order_id;
     }
 
     // possible return values: array(code [,message])
@@ -618,8 +645,7 @@ class PluginEnom extends RegistrarPlugin
 
         CE_Lib::log(4, 'Enom Params: ' . $request);
         //echo "$request\n";
-        // certificate validation doesn't work well under windows
-        $response = NE_Network::curlRequest($this->settings, $request, false, false, true);
+        $response = NE_Network::curlRequest($this->settings, $request, false, false, false);
         //echo $response;
 
         if (is_a($response, 'CE_Error')) {
@@ -650,7 +676,7 @@ class PluginEnom extends RegistrarPlugin
                 switch ($RRPCode) {
                     case 540:
                         throw new CE_Exception("eNom Plugin Error: Error performing operation: Domain not available");
-                    break;
+                        break;
                     default:
                         $messages = "";
                         for ($i = 1; $i <= $err; $i++) {
@@ -1303,5 +1329,42 @@ class PluginEnom extends RegistrarPlugin
             }
         }
         return $str;
+    }
+
+    public function canAutoRenewDomain($params): bool
+    {
+        $status = $this->getRegistrationStatus($params);
+        if ($status === '') {
+            CE_Lib::log(4, 'eNom: could not determine registration status, blocking autorenew');
+            return false;
+        }
+
+        // only registered and expired domains renew automatically
+        // redemption and RGP restores are a separate paid operation and stay manual
+        $normalized = mb_strtolower(str_replace(array(' ', '-', '_'), '', $status));
+        if (mb_strpos($normalized, 'registered') !== false || mb_strpos($normalized, 'expired') !== false) {
+            return true;
+        }
+
+        CE_Lib::log(4, 'eNom: domain not in an autorenewable status: ' . $status);
+        return false;
+    }
+
+    private function getRegistrationStatus($params): string
+    {
+        $arguments = array(
+            'command' => 'GetDomainInfo',
+            'uid'     => $params['Login'],
+            'pw'      => $params['Password'],
+            'sld'     => $params['sld'],
+            'tld'     => $params['tld']
+        );
+
+        $response = $this->makeRequest($params, $arguments);
+        if (!isset($response['interface-response']['#']['GetDomainInfo'][0]['#']['status'][0]['#']['registrationstatus'][0]['#'])) {
+            return '';
+        }
+
+        return trim($response['interface-response']['#']['GetDomainInfo'][0]['#']['status'][0]['#']['registrationstatus'][0]['#']);
     }
 }
